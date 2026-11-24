@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api.js";
 
 export default function 差额清单() {
@@ -10,7 +11,10 @@ export default function 差额清单() {
   return (
     <div>
       <h1 className="题">差额清单</h1>
-      <p className="述">快照余额与回放余额不一致时落在这里；冒烟通过时应为空或仅历史批。</p>
+      <p className="述">
+        快照余额与回放余额不一致时落在这里；每条差额在同票事务内对应一张
+        <Link to="/纠偏工单">纠偏工单</Link>（回放不改镜，闭环前再次回放仍报差额）。
+      </p>
       <div className="行">
         <button className="次" onClick={() => api.差额().then(set行).catch((e) => set讯(String(e.message || e)))}>
           刷新

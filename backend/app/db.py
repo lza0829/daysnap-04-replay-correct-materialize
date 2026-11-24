@@ -2,14 +2,30 @@ import os
 import sqlite3
 from pathlib import Path
 
-数据目录 = Path(os.environ.get("数据目录", Path(__file__).resolve().parent.parent / "data"))
-夹具目录 = Path(os.environ.get("夹具目录", Path(__file__).resolve().parent.parent.parent / "fixtures"))
-库路径 = 数据目录 / "日镜账.db"
+默认数据目录 = Path(__file__).resolve().parent.parent / "data"
+默认夹具目录 = Path(__file__).resolve().parent.parent.parent / "fixtures"
+库名 = "日镜账.db"
+# 并发作业撞写时最多等待 3s；超时即失败闭（由服务层转作业冲突 409），不允许长排队
+忙等毫秒 = 3000
+
+
+def 数据目录() -> Path:
+    return Path(os.environ.get("数据目录", 默认数据目录))
+
+
+def 夹具目录() -> Path:
+    return Path(os.environ.get("夹具目录", 默认夹具目录))
+
+
+def 库路径() -> Path:
+    return 数据目录() / 库名
 
 
 def 连接() -> sqlite3.Connection:
-    数据目录.mkdir(parents=True, exist_ok=True)
-    c = sqlite3.connect(库路径)
+    目录 = 数据目录()
+    目录.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(库路径(), timeout=忙等毫秒 / 1000)
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA foreign_keys = ON")
+    c.execute(f"PRAGMA busy_timeout = {忙等毫秒}")
     return c

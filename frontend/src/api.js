@@ -32,6 +32,11 @@ export const api = {
   装载批次: () => 请求("/装载批次"),
   抽取批次: () => 请求("/抽取批次"),
   回放批次: () => 请求("/回放批次"),
+  回放处置: (批号) => 请求(`/回放处置/${encodeURIComponent(批号)}`),
+  工单: (仅待处理 = false) => 请求(`/工单?仅待处理=${仅待处理}`),
+  盖写审计: () => 请求("/盖写审计"),
+  工单闭环: (工单号, 修正余额 = null) =>
+    请求("/工单闭环", { method: "POST", body: JSON.stringify({ 工单号, 修正余额 }) }),
   装载夹具: (名) => 请求("/装载夹具", { method: "POST", body: JSON.stringify({ 名 }) }),
   抽取: (营业日) => 请求("/抽取", { method: "POST", body: JSON.stringify({ 营业日 }) }),
   回放: (营业日) => 请求("/回放", { method: "POST", body: JSON.stringify({ 营业日 }) }),

@@ -3,7 +3,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.db import 夹具目录, 连接
-from app.services import 回放, 抽取, 目录, 装载
+from app.services import 回放, 抽取, 目录, 装载, 处置
+from app.services.作业闸 import 作业冲突
+from app.services.处置 import 工单未找到
 
 路由 = APIRouter(prefix="/api")
 
@@ -16,6 +18,11 @@ class 装载请求(BaseModel):
 class 营业日请求(BaseModel):
     营业日: str
     批次编号: str = ""
+
+
+class 工单闭环请求(BaseModel):
+    工单号: str
+    修正余额: int | None = None
 
 
 @路由.get("/健康")
@@ -160,11 +167,44 @@ def 列回放批():
     return _列批("回放批次")
 
 
+@路由.get("/回放处置/{batch}")
+def 取回放处置接口(batch: str):
+    """只读回放处置事实：批号、是否改镜（快照权威口径恒 false）、工单集合、valid。
+
+    路径参数名须 ASCII（Starlette 路径参数不接受中文标识符），语义即批号。
+    """
+    return 处置.取回放处置(batch)
+
+
+@路由.get("/工单")
+def 列工单接口(仅待处理: bool = False):
+    return 处置.列工单(仅待处理=仅待处理)
+
+
+@路由.get("/盖写审计")
+def 列盖写审计():
+    conn = 连接()
+    try:
+        return [dict(r) for r in conn.execute("SELECT * FROM 盖写审计 ORDER BY 编号 DESC LIMIT 300")]
+    finally:
+        conn.close()
+
+
+@路由.post("/工单闭环")
+def 工单闭环接口(体: 工单闭环请求):
+    try:
+        return 处置.人工核账闭环(体.工单号, 体.修正余额)
+    except 工单未找到 as e:
+        raise HTTPException(404, f"工单不存在: {e}") from e
+    except ValueError as e:
+        raise HTTPException(409, str(e)) from e
+
+
 @路由.get("/夹具")
 def 列夹具():
-    if not 夹具目录.exists():
+    if not 夹具目录().exists():
         return []
-    return sorted(p.name for p in 夹具目录.glob("*.json"))
+    return sorted(p.name for p in 夹具目录().glob("*.json"))
 
 
 @路由.post("/装载")
@@ -190,7 +230,7 @@ def 装载夹具体(体: 夹具请求):
 
 
 def _装载夹具文件(名: str):
-    path = 夹具目录 / 名
+    path = 夹具目录() / 名
     if not path.exists():
         raise HTTPException(404, f"夹具不存在: {名}")
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -202,6 +242,8 @@ def _装载夹具文件(名: str):
 def 执行抽取(体: 营业日请求):
     try:
         return 抽取.日终抽取(体.营业日, 体.批次编号)
+    except 作业冲突 as e:
+        raise HTTPException(409, str(e)) from e
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
 
@@ -210,6 +252,8 @@ def 执行抽取(体: 营业日请求):
 def 执行回放(体: 营业日请求):
     try:
         return 回放.回放核对(体.营业日, 体.批次编号)
+    except 作业冲突 as e:
+        raise HTTPException(409, str(e)) from e
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
 
@@ -229,6 +273,9 @@ def 重置():
             "跳变记录",
             "旁置簿",
             "装载批次",
+            "纠偏工单",
+            "盖写审计",
+            "作业锁",
         ):
             conn.execute(f"DELETE FROM {t}")
         conn.commit()

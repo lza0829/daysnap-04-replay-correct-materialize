@@ -15,6 +15,9 @@ def 总览() -> dict:
             "断档数": 数("SELECT COUNT(*) FROM 断档记录"),
             "跳变数": 数("SELECT COUNT(*) FROM 跳变记录"),
             "旁置数": 数("SELECT COUNT(*) FROM 旁置簿"),
+            "工单数": 数("SELECT COUNT(*) FROM 纠偏工单"),
+            "待处理工单数": 数("SELECT COUNT(*) FROM 纠偏工单 WHERE 状态='待处理'"),
+            "盖写审计数": 数("SELECT COUNT(*) FROM 盖写审计"),
             "抽取批次数": 数("SELECT COUNT(*) FROM 抽取批次"),
             "回放批次数": 数("SELECT COUNT(*) FROM 回放批次"),
         }
